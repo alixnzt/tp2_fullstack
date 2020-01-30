@@ -1,18 +1,22 @@
 const request = require('supertest')
 const app = require('../app')
-const db = require('../models')
+const db = {
+    Author: require('../models/mongoModels/author'),
+    Post: require('../models/mongoModels/post')
+}
+
 const cleanDb = require('./helpers/cleanDb')
 require('./factories/author').factory
 const factory = require('factory-girl').factory
 require('./factories/post').factory
 
 beforeAll(async () => {
-    await cleanDb(db)
+    // await cleanDb(db)
 });
 
 afterAll(async () => {
-    await cleanDb(db)
-    await db.close()
+    // await cleanDb(db)
+    // await db.close()
 });
 
 describe('GET /', () => {
@@ -49,12 +53,8 @@ describe('POST /author', () => {
     });
 
     test('It should create and retrieve a post for the selected author', async () => {
-        const author = await db.Author.findOne({
-            where: {
-                id: response.body.id
-            }
-        })
-        expect(author.id).toBe(response.body.id)
+        const author = await db.Author.findOne({ _id: response.body._id })
+        expect(author._id.toString()).toBe(response.body._id)
         expect(author.firstName).toBe(data.firstName)
         expect(author.lastName).toBe(data.lastName)
     });
@@ -76,7 +76,7 @@ describe('GET /authors', () => {
         })
 
         test('It should not retrieve any authors in db', async () => {
-            const authors = await db.Author.findAll()
+            const authors = await db.Author.find()
             expect(authors.length).toBe(0);
         });
 
@@ -96,7 +96,7 @@ describe('GET /authors', () => {
         })
 
         test('It should not retrieve any author in db', async () => {
-            const authorsInDatabase = await db.Author.findAll()
+            const authorsInDatabase = await db.Author.find()
             expect(authorsInDatabase.length).toBe(5)
         });
         test('It should respond with a 200 status code', async () => {
@@ -106,11 +106,18 @@ describe('GET /authors', () => {
             expect(response.body.length).toBe(5)
             for (i = 0; i < 5; i++) {
                 const expectedBody = {
-                    id: authors[i].id,
+                    _id: authors[i]._id.toString(),
                     firstName: authors[i].firstName,
                     lastName: authors[i].lastName,
                 }
-                expect(response.body).toContainEqual(expectedBody)
+                //Workaround to make id to string
+                const tempBody = response.body.map(x => {
+                    return {
+                        ...x,
+                        _id: x._id.toString()
+                    }
+                })
+                expect(tempBody).toContainEqual(expectedBody)
             }
         });
     })
@@ -130,16 +137,18 @@ describe('POST /post', () => {
         beforeAll(async () => {
             author = await factory.create('author')
             post = await factory.build('post')
+            // author.posts = [post]
             data.title = post.title
             data.content = post.content
-            data.AuthorId = author.id
+            data.author = author
+            // console.log(data)
             response = await request(app).post('/post').send(data).set('Accept', 'application/json')
         })
         test('It should respond with a 200 status code', async () => {
             expect(response.statusCode).toBe(200);
         });
         test('It should create and retrieve a post for the selected author', async () => {
-            const postsInDatabase = await db.Post.findAll()
+            const postsInDatabase = await db.Post.find()
             expect(postsInDatabase.length).toBe(1)
             expect(postsInDatabase[0].title).toBe(post.title)
             expect(postsInDatabase[0].content).toBe(post.content)
@@ -151,7 +160,9 @@ describe('POST /post', () => {
         });
 
         test('The post should belong to the selected authors\' posts', async () => {
-            const posts = await author.getPosts()
+            // const posts = await author.getPosts()
+            const posts = await db.Post.find({ author: author._id })
+            console.log(posts)
             expect(posts.length).toBe(1)
             expect(posts[0].title).toBe(post.title)
             expect(posts[0].content).toBe(post.content)

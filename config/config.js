@@ -1,5 +1,4 @@
 const env = process.env.NODE_ENV || 'development'
-console.log( process.env.NODE_ENV)
 
 switch (env) {
     case 'development':

@@ -23,7 +23,7 @@ describe('GET /', () => {
     let response;
 
     beforeEach(async () => {
-        await cleanDb(db)
+        // await cleanDb(db)
         response = await request(app).get('/');
     })
 
@@ -68,7 +68,7 @@ describe('GET /authors', () => {
     let response;
     let data = {};
 
-    beforeAll(async () => await cleanDb(db))
+    // beforeAll(async () => await cleanDb(db))
 
     describe('when there is no author in database', () => {
         beforeAll(async () => {
@@ -131,7 +131,7 @@ describe('POST /post', () => {
     let post
     let author
 
-    beforeAll(async () => await cleanDb(db))
+    // beforeAll(async () => await cleanDb(db))
 
     describe('The author has one or multiple posts', () => {
         beforeAll(async () => {
@@ -170,3 +170,44 @@ describe('POST /post', () => {
 
     })
 });
+
+describe('GET /posts', () => {
+    let response
+    let data = {}
+    let post
+    let author
+
+    beforeAll(async () => {
+        await cleanDb(db)
+        author = await factory.create('author')
+        post = await factory.createMany('post', 2, {author})
+
+        response = await request(app).get('/posts').set('Accept', 'application/json');
+    })
+
+    test('The post should retrieve posts with authors\' posts', async () => {
+        var result = { data: []}
+        
+        for (var i = 0;i<post.length;i++){
+        
+            if (post[i].author != null && post[i].author != undefined) {
+               let maPost = [...post][i]
+               maPost.author = [...post][i].author._id
+                result.data.push({
+                    post: maPost, 
+                    relationship: {
+                        _id: post[i].author._id,
+                        firstName: post[i].author.firstName,
+                        lastName: post[i].author.lastName
+                }})
+            } else {
+                result.data.push({
+                    post: maPost,
+                    relationship: ""
+                })
+            }
+        }
+        expect(response.body).toEqual(result)
+})
+})
+
